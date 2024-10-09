@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "Builder": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the build process to display in the UI."
+        },
+        "workDir": {
+          "type": "string",
+          "description": "The working directory for the build process, relative to the qx.build file."
+        },
+        "compilerArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional command line arguments to pass to `qx compile`."
+        },
+        "preBuild": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of setup commands to run before the build process. These commands will be run in the same shell session as the `qx compile` command."
+        },
+        "postBuild": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of cleanup commands to run after the build process. These commands will be run in the same shell session as the `qx compile` command."
+        },
+        "sourcePaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional paths to watch for changes. Paths are resolved relative to the `workDir`, and may be either absolute or relative. Paths can also be loaded from JSON files, for example to read the `libraries` property from a `compile.json` file add `\"compile.json#libraries\"` to the array"
+        }
+      },
+      "required": []
+    }
+  },
+  "type": "object",
+  "properties": {
+    "builders": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/Builder" }
+    },
+    "autostart": {
+      "type": "string",
+      "description": "The name of a builder in this file to automatically start when the extension is activated. Optional.",
+      "default": ""
+    }
+  },
+  "required": ["builders"]
+}

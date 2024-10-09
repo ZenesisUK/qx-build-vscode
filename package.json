@@ -1,0 +1,65 @@
+{
+  "name": "qx-build-vscode",
+  "displayName": "QX Build VScode",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "repository": {
+    "url": "https://github.com/ZenesisUK/qx-build-vscode",
+    "type": "git"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "qx-build-vscode.buildOnce",
+        "title": "QX Build: Build Once..."
+      },
+      {
+        "command": "qx-build-vscode.buildWatch",
+        "title": "QX Build: Build Watch..."
+      },
+      {
+        "command": "qx-build-vscode.stopBuilder",
+        "title": "QX Build: Stop Builder..."
+      },
+      {
+        "command": "qx-build-vscode.sampleQxBuild",
+        "title": "QX Build: Create Sample `qx.build` file"
+      },
+      {
+        "command": "qx-build-vscode.inspectConfig",
+        "title": "QX Build: Inspect Resolved Config..."
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "test": "vscode-test",
+    "vsix": "vsce package -o qx-build-vscode.vsix",
+    "install-extension": "npm run vsix && code --install-extension ./*.vsix"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.7",
+    "@types/node": "^20.16.0",
+    "@types/vscode": "^1.93.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "@vscode/vsce": "^3.1.0",
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "tree-kill": "^1.2.2"
+  }
+}
