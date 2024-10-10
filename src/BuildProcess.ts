@@ -64,8 +64,8 @@ type BuildProcessEventMap = {
 };
 
 export class BuildProcess extends TypedEventTarget<BuildProcessEventMap> {
-  public static qxBuildFileFor(workspace: vscode.WorkspaceFolder) {
-    return vscode.Uri.joinPath(workspace.uri, "qx.build").fsPath;
+  public static qxBuildFileFor(workspace: string) {
+    return path.join(workspace, "qx.build");
   }
 
   private static validateNormalize(data: any, defaultWorkDir: string): BuildProcessData {
@@ -111,7 +111,7 @@ export class BuildProcess extends TypedEventTarget<BuildProcessEventMap> {
 
   public static createFor(
     context: vscode.ExtensionContext,
-    workspace: vscode.WorkspaceFolder,
+    workspace: string,
     existingInstances?: Map<string, BuildProcess>,
   ) {
     BuildProcess.diagnosticsChannel ??= vscode.window.createOutputChannel("QX Build Diagnostics");
@@ -123,7 +123,7 @@ export class BuildProcess extends TypedEventTarget<BuildProcessEventMap> {
       if (!Array.isArray(qxBuildFileJson.builders)) throw new Error("qx.build#builders must be an array.");
       const buildProcesses = new Map<string, BuildProcess>();
       for (const configuration of qxBuildFileJson.builders) {
-        const qxBuildFileData = BuildProcess.validateNormalize(configuration, workspace.uri.fsPath);
+        const qxBuildFileData = BuildProcess.validateNormalize(configuration, workspace);
         let buildProcess: BuildProcess;
         if (existingInstances?.has(qxBuildFileData.name)) {
           const existingInstance = existingInstances.get(qxBuildFileData.name)!;
@@ -229,17 +229,24 @@ export class BuildProcess extends TypedEventTarget<BuildProcessEventMap> {
   private readonly statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
 
   public updateData({ name, workDir, compilerArgs, preBuild, postBuild, sourcePaths }: BuildProcessData) {
+    let same = true;
+    if (this.name !== name) same = false;
     this.name = name;
+    if (this.workDir !== workDir) same = false;
     this.workDir = workDir;
+    if (this.compilerArgs?.join(" ") !== compilerArgs?.join(" ")) same = false;
     this.compilerArgs = compilerArgs;
+    if (this.preBuild?.join(" ") !== preBuild?.join(" ")) same = false;
     this.preBuild = preBuild;
+    if (this.postBuild?.join(" ") !== postBuild?.join(" ")) same = false;
     this.postBuild = postBuild;
+    if (this.sourcePaths?.join(" ") !== sourcePaths?.join(" ")) same = false;
     this.sourcePaths = sourcePaths;
 
     const channelName = `QX Build: ${this.name}`;
     if (this.channel && this.channel.name !== channelName) this.channel.dispose();
     this.channel = vscode.window.createOutputChannel(channelName);
-    if (this.isWatching) {
+    if (this.isWatching && !same) {
       vscode.window.showInformationMessage(`Restarting build process for ${this.name}`);
       this.channel.appendLine(`[system]: Restarting build process for ${this.name}`);
       this.stop();

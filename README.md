@@ -158,3 +158,13 @@ etc, will copy the configuration of the `My Qooxdoo App` builder from the same
 It's important not to include the `qx.build` filename in the path section.
 Internally, build pointers are validated via `fs.readdir`, as such they need a
 path to a directory, not a file.
+
+## Multiple Workspaces & Nested Projects
+
+On startup QX Build will scan all open workspaces recursively for `compile.json`
+files. Then with each found `compile.json` file, QX Build will watch for changes
+to the `qx.build` file in the same directory - even if that file does not yet
+exist.
+From there, any changes to a `qx.build` file (including create or delete) will
+trigger QX Build to re-read the configuration and update the effected builders.
+Note that this does not stop any currently running builds or watched builds.

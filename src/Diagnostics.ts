@@ -82,7 +82,7 @@ export class Diagnostics {
   constructor(
     private context: vscode.ExtensionContext,
     private channel: vscode.OutputChannel,
-    private workspace: vscode.WorkspaceFolder,
+    private workspace: string,
     private buildProcess: BuildProcess,
   ) {
     this.diagnosticCollection = vscode.languages.createDiagnosticCollection(`qooxdoo:${this.prefix}`);
@@ -92,7 +92,7 @@ export class Diagnostics {
   }
 
   private get prefix() {
-    return `${this.workspace.name}:${this.buildProcess.name}`;
+    return `${this.workspace}:${this.buildProcess.name}`;
   }
 
   private log(message: string) {
@@ -158,7 +158,7 @@ export class Diagnostics {
     const classpath = path.resolve(...classname.split(".")) + ".js";
     const files = [];
     for (const sourcePath of this.buildProcess.sourcePaths) {
-      const basePath = path.resolve(this.workspace.uri.fsPath, sourcePath);
+      const basePath = path.resolve(this.workspace, sourcePath);
       files.push(
         ...fs
           .readdirSync(basePath, { recursive: true, encoding: "utf-8" })
@@ -181,7 +181,7 @@ export class Diagnostics {
     if (!(data.messageId in messages)) return;
     const message = strf(messages[data.messageId as keyof typeof messages], ...data.args);
     this.appendIssue(
-      this.workspace.uri,
+      vscode.Uri.parse(this.workspace),
       new vscode.Diagnostic(
         new vscode.Range(0, 0, 0, 0),
         `${message} (${data.messageId})`,
@@ -198,7 +198,8 @@ export class Diagnostics {
       data.message,
       this.decodeLevel(data.level, source),
     ] as const;
-    if (files.length === 0) return this.appendIssue(this.workspace.uri, new vscode.Diagnostic(...diagnostic));
+    if (files.length === 0)
+      return this.appendIssue(vscode.Uri.parse(this.workspace), new vscode.Diagnostic(...diagnostic));
     for (const file of files) this.appendIssue(file, new vscode.Diagnostic(...diagnostic));
   }
 

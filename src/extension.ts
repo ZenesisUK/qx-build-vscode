@@ -1,25 +1,45 @@
 import * as vscode from "vscode";
 import fs from "fs";
+import path from "path";
 import { BuildProcess } from "./BuildProcess.js";
-import { Diagnostics } from "./Diagnostics.js";
 
 class Extension {
   public constructor(private context: vscode.ExtensionContext) {
     this.channel = vscode.window.createOutputChannel("QX Build");
   }
 
+  #qxProjects!: string[];
+  public get qxProjects() {
+    if (!this.#qxProjects) {
+      this.#qxProjects = (vscode.workspace.workspaceFolders ?? []).map(folder => folder.uri.fsPath);
+      let unchecked = true;
+      while (unchecked) {
+        unchecked = false;
+        for (const potentialProject of this.#qxProjects) {
+          if (!fs.existsSync(path.join(potentialProject, "compile.json"))) {
+            this.#qxProjects.splice(this.#qxProjects.indexOf(potentialProject), 1);
+            const dirs = fs
+              .readdirSync(potentialProject, { withFileTypes: true })
+              .filter(dirent => dirent.isDirectory())
+              .map(dirent => path.join(potentialProject, dirent.name));
+            if (dirs.length) {
+              this.#qxProjects.push(...dirs);
+              unchecked = true;
+            }
+          }
+        }
+      }
+    }
+    return this.#qxProjects;
+  }
+
   private channel: vscode.OutputChannel;
-
-  private diagnostics!: Diagnostics;
-
-  private workspaces: vscode.WorkspaceFolder[] = [];
-  private registerWorkspaces() {
-    this.channel.appendLine("Registering workspaces...");
-    this.workspaces = (vscode.workspace.workspaceFolders ?? []).filter(folder =>
-      fs.existsSync(BuildProcess.qxBuildFileFor(folder)),
-    );
-    this.channel.appendLine("Registered workspaces:");
-    for (const workspace of this.workspaces) this.channel.appendLine(`- ${workspace.uri.fsPath}`);
+  private workspaces: string[] = [];
+  private registerQxBuilds() {
+    this.channel.appendLine("Registering qx.build files...");
+    this.workspaces = this.qxProjects.filter(folder => fs.existsSync(BuildProcess.qxBuildFileFor(folder)));
+    this.channel.appendLine("Registered qx.build file in each of the following directories:");
+    for (const workspace of this.workspaces) this.channel.appendLine(`- ${workspace}`);
   }
 
   private buildProcesses: Map<string, Map<string, BuildProcess>> = new Map();
@@ -32,8 +52,7 @@ class Extension {
       this.buildProcesses.set(workspaceKey, buildProcesses);
     }
     for (const key of this.buildProcesses.keys()) {
-      const predicate = (workspace: vscode.WorkspaceFolder) => BuildProcess.qxBuildFileFor(workspace) === key;
-      if (!(vscode.workspace.workspaceFolders ?? []).some(predicate)) {
+      if (!this.qxProjects.some(dir => BuildProcess.qxBuildFileFor(dir) === key)) {
         const buildProcesses = this.buildProcesses.get(key)!;
         buildProcesses.forEach(buildProcess => buildProcess.stop());
         this.buildProcesses.delete(key);
@@ -45,9 +64,9 @@ class Extension {
   private vscodeFileSystemWatchers: Map<string, vscode.FileSystemWatcher> = new Map();
   private initializeBuilders() {
     this.channel.appendLine("Initializing builders...");
-    this.registerWorkspaces();
+    this.registerQxBuilds();
     this.createBuildProcesses();
-    for (const file of vscode.workspace.workspaceFolders ?? []) {
+    for (const file of this.qxProjects) {
       const filepath = BuildProcess.qxBuildFileFor(file);
       if (this.vscodeFileSystemWatchers.has(filepath)) continue;
       const watcher = vscode.workspace.createFileSystemWatcher(filepath);
@@ -62,7 +81,7 @@ class Extension {
       watcher.onDidDelete(updater);
     }
     for (const key of this.vscodeFileSystemWatchers.keys()) {
-      if (!(vscode.workspace.workspaceFolders ?? []).some(dir => BuildProcess.qxBuildFileFor(dir) === key)) {
+      if (!this.qxProjects.some(dir => BuildProcess.qxBuildFileFor(dir) === key)) {
         this.vscodeFileSystemWatchers.get(key)!.dispose();
         this.vscodeFileSystemWatchers.delete(key);
       }
