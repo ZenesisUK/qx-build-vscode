@@ -148,21 +148,21 @@ export class BuildProcess extends TypedEventTarget<BuildProcessEventMap> {
   public constructor(data: BuildProcessData) {
     super();
     this.updateData(data);
-
-    const safeColor = (uuid: string) => {
-      const uuidChars = uuid.split("");
-      uuidChars[0] = Math.min(Math.max(parseInt(uuidChars[0], 16), 5), 11).toString(16);
-      uuidChars[2] = Math.min(Math.max(parseInt(uuidChars[2], 16), 5), 11).toString(16);
-      uuidChars[4] = Math.min(Math.max(parseInt(uuidChars[4], 16), 5), 11).toString(16);
-      return uuidChars.join("");
-    };
-    this.on("initBuild", ({ uuid }) => {
-      this.statusBarItem.color = `#${safeColor(uuid)}`;
-      this.statusBarItem.text = `$(sync~spin) ${this.name}`;
+    let isVisible = false;
+    this.on("initBuild", () => {
+      const text = `$(loading~spin) ${this.name}`;
+      if (isVisible) {
+        this.statusBarItem.text = `${text} (restarting)`;
+        setTimeout(() => (this.statusBarItem.text = text), 3000);
+      } else this.statusBarItem.text = text;
       this.statusBarItem.tooltip = `Running build process for ${this.name}`;
       this.statusBarItem.show();
+      isVisible = true;
     });
-    this.on("doneBuild", () => this.statusBarItem.hide());
+    this.on("doneBuild", () => {
+      this.statusBarItem.hide();
+      isVisible = false;
+    });
   }
 
   public diagnostics!: Diagnostics;
