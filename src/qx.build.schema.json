@@ -41,7 +41,8 @@
           "description": "Additional paths to watch for changes. Paths are resolved relative to the `workDir`, and may be either absolute or relative. Paths can also be loaded from JSON files, for example to read the `libraries` property from a `compile.json` file add `\"compile.json#libraries\"` to the array"
         }
       },
-      "required": []
+      "required": [],
+      "additionalProperties": false
     }
   },
   "type": "object",
@@ -56,5 +57,6 @@
       "default": ""
     }
   },
-  "required": ["builders"]
+  "required": ["builders"],
+  "additionalProperties": false
 }
