@@ -5,7 +5,7 @@ import childProcess from "child_process";
 import fs from "fs";
 import path from "path";
 import { Diagnostics } from "./Diagnostics.js";
-import { isPojo, isStringArray, keyIsArrayOfString, keyIsString, removeDuplicates } from "./util/validate.js";
+import { isPojo, keyIsArrayOfString, keyIsString, removeDuplicates } from "./util/validate.js";
 import { handlePointers } from "./util/pointers.js";
 
 export type BuildProcessData = {
@@ -234,13 +234,13 @@ export class BuildProcess extends TypedEventTarget<BuildProcessEventMap> {
     this.name = name;
     if (this.workDir !== workDir) same = false;
     this.workDir = workDir;
-    if (this.compilerArgs?.join(" ") !== compilerArgs?.join(" ")) same = false;
+    if (this.compilerArgs?.join(" ") !== compilerArgs.join(" ")) same = false;
     this.compilerArgs = compilerArgs;
-    if (this.preBuild?.join(" ") !== preBuild?.join(" ")) same = false;
+    if (this.preBuild?.join(" ") !== preBuild.join(" ")) same = false;
     this.preBuild = preBuild;
-    if (this.postBuild?.join(" ") !== postBuild?.join(" ")) same = false;
+    if (this.postBuild?.join(" ") !== postBuild.join(" ")) same = false;
     this.postBuild = postBuild;
-    if (this.sourcePaths?.join(" ") !== sourcePaths?.join(" ")) same = false;
+    if (this.sourcePaths?.join(" ") !== sourcePaths.join(" ")) same = false;
     this.sourcePaths = sourcePaths;
 
     const channelName = `QX Build: ${this.name}`;
@@ -268,6 +268,7 @@ export class BuildProcess extends TypedEventTarget<BuildProcessEventMap> {
       const watcher = fs.watch(target, { recursive: true }, (_, filepath) => {
         if (!filepath) return;
         if (!filepath.endsWith(".js") && !filepath.endsWith(".ts")) return;
+        if (filepath.startsWith("compiled")) return;
         this.channel.appendLine(`[system]: File changed: ${filepath}`);
         this.debounceBuild();
       });
@@ -301,6 +302,8 @@ export class BuildProcess extends TypedEventTarget<BuildProcessEventMap> {
       else {
         if (enable) this.dispatchEvent(new CompilerOutputEvent("data", data, "stdout"));
         this.channel.appendLine(`[${prefix}][stdout]: ${data}`);
+        if (data.toLowerCase().startsWith("loading meta data"))
+          this.dispatchEvent(new BuildLifecycleEvent("doneBuild", "done", uuid));
       }
     };
     const onStderr = (data: string) => {

@@ -155,13 +155,14 @@ export class Diagnostics {
   }
 
   private findFilesForClass(classname: string) {
-    const classpath = path.resolve(...classname.split(".")) + ".js";
+    const classpath = path.join(...classname.split(".")) + ".js";
     const files = [];
     for (const sourcePath of this.buildProcess.sourcePaths) {
       const basePath = path.resolve(this.workspace, sourcePath);
       files.push(
         ...fs
           .readdirSync(basePath, { recursive: true, encoding: "utf-8" })
+          .filter(file => !file.split(path.sep).includes("transpiled"))
           .filter(file => file.endsWith(classpath))
           .map(file => path.resolve(basePath, file))
           .filter(file => fs.existsSync(file))

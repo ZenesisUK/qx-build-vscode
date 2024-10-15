@@ -47,6 +47,7 @@
   },
   "type": "object",
   "properties": {
+    "$schema": { "type": "string" },
     "builders": {
       "type": "array",
       "items": { "$ref": "#/definitions/Builder" }
