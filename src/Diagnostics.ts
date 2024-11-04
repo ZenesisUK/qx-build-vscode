@@ -88,7 +88,7 @@ export class Diagnostics {
     this.diagnosticCollection = vscode.languages.createDiagnosticCollection(`qooxdoo:${this.prefix}`);
     this.context.subscriptions.push(this.diagnosticCollection);
     this.buildProcess.on("data", event => this.hit(event));
-    this.buildProcess.on("initBuild", () => this.diagnosticCollection.clear());
+    this.buildProcess.on("build", () => this.diagnosticCollection.clear());
   }
 
   private get prefix() {

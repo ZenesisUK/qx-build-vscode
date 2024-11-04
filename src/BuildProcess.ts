@@ -45,22 +45,20 @@ export type BuildProcessData = {
 };
 
 export class CompilerOutputEvent extends Event {
-  constructor(name: string, public readonly data: string, public readonly source: "stdout" | "stderr") {
-    super(name);
+  constructor(public readonly data: string, public readonly source: "stdout" | "stderr") {
+    super("data");
   }
 }
 
-export class BuildLifecycleEvent extends Event {
-  constructor(name: string, public readonly kind: "init" | "kill" | "done", public readonly uuid: string) {
-    super(name);
+export class BuildEvent extends Event {
+  constructor(public readonly uuid: string) {
+    super("build");
   }
 }
 
 type BuildProcessEventMap = {
   data: CompilerOutputEvent;
-  initBuild: BuildLifecycleEvent;
-  killBuild: BuildLifecycleEvent;
-  doneBuild: BuildLifecycleEvent;
+  build: BuildEvent;
 };
 
 export class BuildProcess extends TypedEventTarget<BuildProcessEventMap> {
@@ -148,21 +146,8 @@ export class BuildProcess extends TypedEventTarget<BuildProcessEventMap> {
   public constructor(data: BuildProcessData) {
     super();
     this.updateData(data);
-    let isVisible = false;
-    this.on("initBuild", () => {
-      const text = `$(loading~spin) ${this.name}`;
-      if (isVisible) {
-        this.statusBarItem.text = `${text} (restarting)`;
-        setTimeout(() => (this.statusBarItem.text = text), 3000);
-      } else this.statusBarItem.text = text;
-      this.statusBarItem.tooltip = `Running build process for ${this.name}`;
-      this.statusBarItem.show();
-      isVisible = true;
-    });
-    this.on("doneBuild", () => {
-      this.statusBarItem.hide();
-      isVisible = false;
-    });
+    this.statusBarItemText("");
+    this.statusBarItem.tooltip = `Running build process for ${this.name}`;
   }
 
   public diagnostics!: Diagnostics;
@@ -228,6 +213,18 @@ export class BuildProcess extends TypedEventTarget<BuildProcessEventMap> {
   private readonly watchers = new Array<fs.FSWatcher>();
   private readonly statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
 
+  private statusBarItemText(text: string) {
+    const MAX_LENGTH = 30;
+    let append = "";
+    text = text.replace(/\.{2,}/, "").trim();
+    if (text.length) {
+      append += ": ";
+      if (text.length > MAX_LENGTH) append += text.slice(0, MAX_LENGTH) + "...";
+      else append += text;
+    }
+    this.statusBarItem.text = `$(loading~spin) ${this.name}${append}`;
+  }
+
   public updateData({ name, workDir, compilerArgs, preBuild, postBuild, sourcePaths }: BuildProcessData) {
     let same = true;
     if (this.name !== name) same = false;
@@ -287,6 +284,7 @@ export class BuildProcess extends TypedEventTarget<BuildProcessEventMap> {
   }
 
   public build() {
+    this.statusBarItem.show();
     this.killProcesses();
     const uuid = crypto.randomUUID().replace(/-/g, "").slice(0, 6);
     const prefix = `build:${uuid}`.toUpperCase();
@@ -298,18 +296,20 @@ export class BuildProcess extends TypedEventTarget<BuildProcessEventMap> {
     const onStdout = (data: string) => {
       data = data.replace(/\x1b\[[0-9;]*m/g, "").trim();
       if (data === startSignal) enable = true;
-      else if (data === endSignal) enable = false;
-      else {
-        if (enable) this.dispatchEvent(new CompilerOutputEvent("data", data, "stdout"));
+      else if (data === endSignal) {
+        enable = false;
+        this.statusBarItem.hide();
+      } else {
+        if (enable) this.dispatchEvent(new CompilerOutputEvent(data, "stdout"));
         this.channel.appendLine(`[${prefix}][stdout]: ${data}`);
-        if (data.toLowerCase().startsWith("loading meta data"))
-          this.dispatchEvent(new BuildLifecycleEvent("doneBuild", "done", uuid));
+        this.statusBarItemText(data);
       }
     };
     const onStderr = (data: string) => {
       data = data.replace(/\x1b\[[0-9;]*m/g, "").trim();
-      if (enable) this.dispatchEvent(new CompilerOutputEvent("data", data, "stderr"));
+      if (enable) this.dispatchEvent(new CompilerOutputEvent(data, "stderr"));
       this.channel.appendLine(`[${prefix}][stderr]: ${data}`);
+      this.statusBarItemText(data);
     };
     const lineByLine = (cb: (data: string) => void) => (data: string) =>
       data
@@ -336,17 +336,15 @@ export class BuildProcess extends TypedEventTarget<BuildProcessEventMap> {
     qxProcess.stdout?.on("data", lineByLine(onStdout));
     qxProcess.stderr?.on("data", lineByLine(onStderr));
     this.processes.set(uuid, qxProcess);
-    this.dispatchEvent(new BuildLifecycleEvent("initBuild", "init", uuid));
-    qxProcess.on("exit", () => {
-      this.processes.delete(uuid);
-      this.dispatchEvent(new BuildLifecycleEvent("doneBuild", "done", uuid));
-    });
+    this.dispatchEvent(new BuildEvent(uuid));
+    qxProcess.on("exit", () => this.processes.delete(uuid));
   }
 
   public stop() {
     for (const watcher of this.watchers) watcher.close();
     this.killProcesses();
     this.channel.appendLine("[system]: Build process stopped.");
+    this.statusBarItem.hide();
   }
 
   private killProcesses() {
@@ -354,7 +352,6 @@ export class BuildProcess extends TypedEventTarget<BuildProcessEventMap> {
     for (const [uuid, proc] of this.processes.entries()) {
       if (proc.pid) kill(proc.pid);
       this.processes.delete(uuid);
-      this.dispatchEvent(new BuildLifecycleEvent("killBuild", "kill", uuid));
     }
   }
 }
