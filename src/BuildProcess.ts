@@ -310,6 +310,10 @@ export class BuildProcess extends TypedEventTarget<BuildProcessEventMap> {
       if (enable) this.dispatchEvent(new CompilerOutputEvent(data, "stderr"));
       this.channel.appendLine(`[${prefix}][stderr]: ${data}`);
       this.statusBarItemText(data);
+      const syntaxError = data.match(/SyntaxError:\s(.+?):/);
+      if (syntaxError?.[1]) {
+        vscode.window.showErrorMessage(`Qooxdoo Build failed for ${this.name}: syntax error in ${syntaxError[1]}`);
+      }
     };
     const lineByLine = (cb: (data: string) => void) => (data: string) =>
       data
